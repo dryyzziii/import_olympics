@@ -1,7 +1,6 @@
 from olympics import db
 import pytest
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import inspect
 from olympics.db import get_session, Country, engine
 from sqlalchemy.orm import declarative_base
 
