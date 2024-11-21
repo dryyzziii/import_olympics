@@ -10,7 +10,6 @@ def test_countries():
     response = client.get('/countries/')
     assert response.status_code == 200
 
-
 def test_athletes():
     response = client.get('/athletes/')
     assert response.status_code == 200

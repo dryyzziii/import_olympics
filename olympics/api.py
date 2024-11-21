@@ -28,7 +28,6 @@ def athletes(id: int | None = None):
     """
     return db.get_athletes(id)
 
-
 @app.get("/disciplines/")
 def disciplines(id: int | None = None):
     """List of disciplines.
@@ -129,4 +128,4 @@ def top_individual(top: int | None = 10):
     Number of athletes is limited to the given top number.
 
     """
-    return db.get_top_collective(top)
+    return db.get_top_individual(top)
