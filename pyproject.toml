@@ -8,6 +8,7 @@ requires-python = '>=3.10'
 dependencies = [
   'pytest',
   'pytest-cov',
+  'sqlalchemy',
   'rich',
   'fastapi[standard]',
   'pytest-cov',

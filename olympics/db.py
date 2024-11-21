@@ -1,174 +1,259 @@
 """Database connection and low-level SQL requests."""
 
-import sqlite3
-import json
+from contextlib import contextmanager
 from pathlib import Path
 import logging
+from sqlalchemy import case, create_engine, Column, Integer, String, ForeignKey, Date
+from sqlalchemy.orm import sessionmaker, declarative_base, relationship
+from sqlalchemy.sql import func
 
-# Configurez les logs
+# Configuration des logs
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
 
+# Configuration SQLAlchemy
+DATABASE_URL = f"sqlite:///{str(Path(__file__).parents[1] / 'database' / 'olympics.db')}"
 
-class Database:
-    def __init__(self, db_path):
-        self.db_path = db_path
-        self.connection = None
+engine = create_engine(DATABASE_URL, echo=False)
+SessionLocal = sessionmaker(bind=engine)
+Base = declarative_base()
 
-    def _connect(self):
-        """Establish and return a database connection."""
-        connection = sqlite3.connect(self.db_path, detect_types=sqlite3.PARSE_DECLTYPES, check_same_thread=False)
-        connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA foreign_keys = ON")
-        return connection
+# Modèles
+class Country(Base):
+    __tablename__ = "country"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
 
-    def _close(self):
-        """Close the database connection."""
-        if self.connection:
-            self.connection.close()
-
-    def _execute_query(self, query, params=None):
-        """Execute a SQL query and return the results."""
-        try:
-            self.connection = self._connect()
-            cursor = self.connection.cursor()
-            logging.debug(f"Executing query: {query} | Params: {params}")
-            if params:
-                result = cursor.execute(query, params).fetchall()
-            else:
-                result = cursor.execute(query).fetchall()
-            logging.debug(f"Query returned {len(result)} rows.")
-            self._close()
-            return result
-        except sqlite3.Error as e:
-            logging.error(f"SQL Error: {e}")
-            self._close()
-            return None
+    athletes = relationship("Athlete", back_populates="country")
+    teams = relationship("Team", back_populates="country")
 
 
-db = Path(__file__).parents[1] / "database" / "olympics.db"
-database = Database(db)
+class Athlete(Base):
+    __tablename__ = "athlete"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    country_id = Column(Integer, ForeignKey("country.id"))
+    gender = Column(String, nullable=False)
 
-TABLES = {
-    "country": "country",
-    "athlete": "athlete",
-    "discipline": "discipline",
-    "team": "team",
-    "event": "event",
-    "medal": "medal",
-    "discipline_athlete": "discipline_athlete",
-}
-
-def load_queries(file_path):
-    """Load SQL queries from a JSON file."""
-    with open(file_path, 'r', encoding='utf-8') as f:
-        return json.load(f)
-
-QUERY_FILE = Path(__file__).parents[0] / "json" / "queries.json"
-QUERIES = load_queries(QUERY_FILE)
+    country = relationship("Country", back_populates="athletes")
+    medals = relationship("Medal", back_populates="athlete")
 
 
-def get_all_by_id(table, id):
-    query = f"SELECT * FROM {table}"
-    if id is not None:
-        query += " WHERE id = ?"
-        return database._execute_query(query, (id,))
-    else:
-        return database._execute_query(query)
+class Discipline(Base):
+    __tablename__ = "discipline"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+
+    events = relationship("Event", back_populates="discipline")
+
+
+class Team(Base):
+    __tablename__ = "team"
+    id = Column(Integer, primary_key=True, index=True)
+    country_id = Column(Integer, ForeignKey("country.id"))
+
+    country = relationship("Country", back_populates="teams")
+    medals = relationship("Medal", back_populates="team")
+
+
+class Event(Base):
+    __tablename__ = "event"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    discipline_id = Column(Integer, ForeignKey("discipline.id"))
+
+    discipline = relationship("Discipline", back_populates="events")
+    medals = relationship("Medal", back_populates="event")
+
+class DisciplineAthlete(Base):
+    __tablename__ = "discipline_athlete"
+    id = Column(Integer, primary_key=True, index=True)
+    discipline_id = Column(Integer, ForeignKey("discipline.id"), primary_key=True)
+    athlete_id = Column(Integer, ForeignKey("athlete.id"), primary_key=True)
+
+
+
+class Medal(Base):
+    __tablename__ = "medal"
+    id = Column(Integer, primary_key=True, index=True)
+    type = Column(String, nullable=False)  # 'gold', 'silver', 'bronze'
+    athlete_id = Column(Integer, ForeignKey("athlete.id"), nullable=True)
+    team_id = Column(Integer, ForeignKey("team.id"), nullable=True)
+    event_id = Column(Integer, ForeignKey("event.id"))
+    date = Column(Date, nullable=True)
+
+    athlete = relationship("Athlete", back_populates="medals")
+    team = relationship("Team", back_populates="medals")
+    event = relationship("Event", back_populates="medals")
+
+
+@contextmanager
+def get_session():
+    session = SessionLocal()
+    try:
+        yield session
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        logging.error(f"Session rollback because of {e}")
+        raise
+    finally:
+        session.close()
+
+def get_all_by_id(session, model, id=None):
+    """Fetch all rows or by ID from a model."""
+    if id:
+        return session.query(model).filter(model.id == id).all()
+    return session.query(model).all()
 
 
 def get_countries(id=None):
-    """Get list of countries.
-
-    If id is not None, the list contains only the country with given id.
-
-    """
-    return get_all_by_id(TABLES["country"], id)
+    with get_session() as session:
+        return get_all_by_id(session, Country, id)
 
 
 def get_athletes(id=None):
-    """Get list of athletes.
-
-    If id is not None, the list contains only the athlete with given id.
-
-    """
-    return get_all_by_id(TABLES["athlete"], id)
+    with get_session() as session:
+        return get_all_by_id(session, Athlete, id)
 
 
 def get_disciplines(id=None):
-    """Get list of disciplines.
-
-    If id is not None, the list contains only the discipline with given id.
-
-    """
-    return get_all_by_id(TABLES["discipline"], id)
+    with get_session() as session:
+        return get_all_by_id(session, Discipline, id)
 
 
 def get_teams(id=None):
-    """Get list of teams.
-
-    If id is not None, the list contains only the team with given id.
-
-    """
-    return get_all_by_id(TABLES["team"], id)
+    with get_session() as session:
+        return get_all_by_id(session, Team, id)
 
 
 def get_events(id=None):
-    """Get list of events.
-
-    If id is not None, the list contains only the event with given id.
-
-    """
-    return get_all_by_id(TABLES["event"], id)
+    with get_session() as session:
+        return get_all_by_id(session, Event, id)
 
 
 def get_medals(id=None):
-    """Get list of medals.
-
-    If id is not None, the list contains only the medal with given id.
-
-    """
-    return get_all_by_id(TABLES["medal"], id)
+    with get_session() as session:
+        return get_all_by_id(session, Medal, id)
 
 
-def get_discipline_athletes(discipline_id):
-    """Get athlete ids linked to given discipline id."""
-    return get_all_by_id(TABLES["discipline_athlete"], discipline_id)
+def get_discipline_athletes(discipline_id=None):
+    with get_session() as session:
+        return get_all_by_id(session, DisciplineAthlete, discipline_id)
+
+
 
 def get_top_individual(top=10):
-    """Get medal count ranking of athletes for individual events.
+    """Get the top individual athletes by medal count."""
+    with get_session() as session:
+        result = (
+            session.query(
+                Athlete.name.label("name"),
+                Athlete.gender.label("gender"),
+                Country.name.label("country"),
+                func.count(Medal.id).label("medals"),
+            )
+            .join(Medal, Medal.athlete_id == Athlete.id)
+            .join(Country, Athlete.country_id == Country.id)
+            .group_by(Athlete.name, Athlete.gender, Country.name)
+            .order_by(func.count(Medal.id).desc())
+            .limit(top)
+            .all()
+        )
+        # Convertir les résultats en dictionnaires
+        return [row._asdict() if hasattr(row, '_asdict') else dict(row._mapping) for row in result]
 
-    Number of athletes is limited to the given top number.
 
-    """
-    query = QUERIES["get_top_individual"]
-    return database._execute_query(query, (top,))
 
 def get_top_countries(top=10):
-    """Get medal count ranking of countries."""
-    query = QUERIES["top_countries"]
-    return database._execute_query(query, (top,))
+    with get_session() as session:
+        result = (
+            session.query(
+                Country.name.label("country"),
+                func.sum(case((Medal.type == "gold", 1), else_=0)).label("gold"),
+                func.sum(case((Medal.type == "silver", 1), else_=0)).label("silver"),
+                func.sum(case((Medal.type == "bronze", 1), else_=0)).label("bronze"),
+            )
+            .outerjoin(Team, Team.country_id == Country.id)
+            .outerjoin(Medal, Medal.team_id == Team.id)
+            .group_by(Country.id)
+            .order_by(
+                func.sum(case((Medal.type == "gold", 1), else_=0)).desc(),
+                func.sum(case((Medal.type == "silver", 1), else_=0)).desc(),
+                func.sum(case((Medal.type == "bronze", 1), else_=0)).desc(),
+            )
+            .limit(top)
+            .all()
+        )
+        return [dict(row._mapping) for row in result]
 
 
 def get_collective_medals(team_id=None):
-    """Get list of medals for team events."""
-    query = QUERIES["collective_medals"]
-    params = (team_id,)
-    if team_id:
-        query += "  WHERE team.id = ?"
-    else: 
-        params = None
-    return database._execute_query(query, params)
+    """Get a list of medals for a specific team or all team events."""
+    with get_session() as session:
+        query = (
+            session.query(
+                Country.name.label("country"),
+                Discipline.name.label("discipline"),
+                Event.name.label("event"),
+                Medal.type.label("medal_type"),
+                Medal.date.label("date"),
+            )
+            .join(Team, Medal.team_id == Team.id)
+            .join(Country, Team.country_id == Country.id)
+            .join(Event, Medal.event_id == Event.id)
+            .join(Discipline, Event.discipline_id == Discipline.id)
+        )
+
+        if team_id:
+            query = query.filter(Team.id == team_id)
+
+        result = query.all()
+        # Conversion en dictionnaires
+        return [dict(row._mapping) for row in result]
+
 
 
 def get_top_collective(top=10):
-    """Get medal count ranking of countries for team events."""
-    query = QUERIES["top_collective"]
-    return database._execute_query(query, (top,))
+    """Get the top countries by collective medal count."""
+    with get_session() as session:
+        result = (
+            session.query(
+                Country.name.label("country"),
+                func.count(Medal.id).label("medals"),
+            )
+            .join(Team, Medal.team_id == Team.id)
+            .join(Country, Team.country_id == Country.id)
+            .group_by(Country.id)
+            .order_by(func.count(Medal.id).desc())
+            .limit(top)
+            .all()
+        )
+        # Conversion en dictionnaires
+        return [dict(row._mapping) for row in result]
+
 
 
 def get_individual_medals(athlete_id=None):
-    """Get list of medals for individual events."""
-    query = QUERIES["individual_medals"]
-    if athlete_id is not None: 
-        query += " WHERE athlete.id = ?"
-    return database._execute_query(query, (athlete_id,))
+    """Get a list of medals for individual athletes."""
+    with get_session() as session:
+        query = (
+            session.query(
+                Athlete.name.label("name"),
+                Country.name.label("country"),
+                Discipline.name.label("discipline"),
+                Event.name.label("event"),
+                Medal.type.label("medal_type"),
+                Medal.date.label("date"),
+            )
+            .join(Medal, Medal.athlete_id == Athlete.id)
+            .join(Country, Athlete.country_id == Country.id)
+            .join(Event, Medal.event_id == Event.id)
+            .join(Discipline, Event.discipline_id == Discipline.id)
+        )
+        if athlete_id:
+            query = query.filter(Athlete.id == athlete_id)
+
+        result = query.all()
+        # Conversion en dictionnaires
+        return [dict(row._mapping) for row in result]
+
