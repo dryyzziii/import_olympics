@@ -11,6 +11,7 @@ dependencies = [
   'rich',
   'fastapi[standard]',
   'pytest-cov',
+  'ruff'
 ]
 
 [tool.pytest.ini_options]
