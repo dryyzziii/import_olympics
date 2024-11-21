@@ -187,7 +187,7 @@ def get_top_countries(top=10):
         GROUP BY country.id
         ORDER BY gold DESC, silver DESC, bronze DESC
         LIMIT ?
-    ''', (10,)).fetchall()
+    ''', (top,)).fetchall()
     cursor.close()
     return rows
 
