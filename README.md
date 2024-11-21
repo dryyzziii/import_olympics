@@ -310,7 +310,7 @@ Dès ma première lecture du fichier `db.py`, j'ai su qu'il nécessitait une ref
 
 ### Problèmes identifiés
 1. **Répétitions de code abusives** : Les requêtes "get by id" étaient copiées et collées à de multiples endroits.
-2. **Mauvaise gestion des connexions à la base de données** : Les ouvertures et fermetures de la base de données n'étaient pas correctement gérées, ce qui pouvait entraîner des fuites de ressources.
+2. **Mauvaise gestion des connexions à la base de données** : Les ouvertures et fermetures de la base de données n'étaient pas correctement gérées. En effet, elles étaient répétitives : à chaque appel de fonction, l'ouverture et la fermeture étaient effectuées de manière redondante.
 
 En entreprise, j'ai déjà repris deux gros projets anciens avec des serveurs très mal codés. Ces expériences m'ont permis de développer une expertise dans la correction de code, notamment côté serveur. J'ai donc appliqué ces compétences ici.
 
@@ -336,3 +336,28 @@ En entreprise, j'ai déjà repris deux gros projets anciens avec des serveurs tr
 - **Séparation des préoccupations** : L'externalisation des requêtes SQL dans un fichier JSON améliore la modularité et facilite les mises à jour.
 
 Ce refactoring apporte une base plus propre et robuste pour les futurs développements sur ce projet.
+
+## Implémentation d'un ORM
+
+Je n'avais jamais implémenté d'ORM en Python, j'ai donc décidé d'en créer un pour étendre mes compétences dans ce langage.
+
+### Étapes de l'implémentation
+1. **Lecture de la documentation**  
+   J'ai commencé par consulter la documentation officielle de SQLAlchemy : [https://docs.sqlalchemy.org/en/20/](https://docs.sqlalchemy.org/en/20/).  
+   Malheureusement, je n'ai pas exploré suffisamment loin pour découvrir que l'ORM pouvait créer les tables de la base de données automatiquement.
+
+2. **Création des tables**  
+   J'ai donc initialement créé les tables en me basant sur le script SQL situé dans `/database/model.sql` et en suivant la documentation.  
+   Pour m'assurer de ne pas oublier certains aspects (comme les `back_populates`), j'ai également demandé de l'aide à une IA. Mon implémentation n'était pas parfaite dès le début, mais grâce au débogage, j'ai ajouté ou supprimé les éléments manquants.
+
+3. **Refactorisation comme point de départ**  
+   La refactorisation préalable de `db.py` m'a grandement aidé dans cette implémentation. Le code étant plus clair et mieux organisé, j'ai pu réaliser rapidement les requêtes simples, comme les "get by id".
+
+4. **Requêtes spécifiques**  
+   La réalisation des requêtes plus complexes m'a posé davantage de problèmes. L'ORM génère ses propres requêtes SQL, et j'ai dû prendre le temps de comprendre quelles fonctions SQL étaient représentées par les fonctions spécifiques du framework.  
+   Certaines fonctionnalités varient selon le type de base de données utilisé (SQLite, etc.), ce qui a ajouté une couche de complexité. Cependant, grâce à une documentation bien structurée et à mon expérience avec d'autres ORM (notamment en JavaScript), j'ai réussi à progresser efficacement.
+
+### Avis personnel
+Je pense que l'implémentation d'un ORM peut être très utile, en particulier pour les personnes moins à l'aise avec SQL. Python étant souvent utilisé par des développeurs débutants ou occasionnels, l'abstraction offerte par un ORM peut leur simplifier la vie.  
+
+Cependant, je trouve que le débogage avec un ORM est parfois peu clair. La vision sur le code reste limitée, donnant l'impression que "ça fonctionne parfois" sans toujours comprendre pourquoi. Cela peut rendre l'apprentissage et la maîtrise de l'outil plus difficiles, surtout pour les débutants.
