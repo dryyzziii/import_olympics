@@ -302,26 +302,37 @@ ajoutez-les à la fin de ce fichier. **N’hésitez pas à expliquer vos réussi
 vos doutes, vos erreurs, afin que je puisse mieux comprendre votre projet et en
 tenir compte lors de mon évaluation.***
 
-## Charles denner
+# Charles Denner
 
-**Refactorisation du code de db.py**
-dès que j'ai vu le code de ce fichier j'était sur de le refaire dès que je pouvais. Effectivement le code était tellement horrible 
-que je me devais de le changer.
+## Refactorisation du fichier `db.py`
 
-J'ai tout de suite remarquer les répétitions de code abusive sur les requêtes get by id.
-J'ai aussi vu que la gestion des ouvertures et fermetures de la db était mal gérer.
-En entreprise j'ai repris 2 énormes projet plutôt ancien avec des serveur très mal codé,
-j'ai donc l'habitude de remarquer du code mal fait et de le corrigé (surtout la partie serveur donc comme ici).
+Dès ma première lecture du fichier `db.py`, j'ai su qu'il nécessitait une refonte complète dès que l'occasion se présenterait. Le code était si mal structuré que je ne pouvais pas passer à côté sans le réorganiser.
 
-J'ai donc tout de suite pensé a faire une class Database pour facilité la gestion d'ouverture et de fermeture de la connection
-en créant des classes pour la connection la fermeture et l'éxécution d'une requête.
+### Problèmes identifiés
+1. **Répétitions de code abusives** : Les requêtes "get by id" étaient copiées et collées à de multiples endroits.
+2. **Mauvaise gestion des connexions à la base de données** : Les ouvertures et fermetures de la base de données n'étaient pas correctement gérées, ce qui pouvait entraîner des fuites de ressources.
 
-j'ai donc qu'une instancation de ma classe au debut de mon programme qui gérera les connection a la bd.
+En entreprise, j'ai déjà repris deux gros projets anciens avec des serveurs très mal codés. Ces expériences m'ont permis de développer une expertise dans la correction de code, notamment côté serveur. J'ai donc appliqué ces compétences ici.
 
-Ensuite j'ai pensé a faire une fonction générique pour le get by id car c'est le code qui ce repéte le plus dans ce fichier.
-Elle prend en entré une table et un id car ce sont les 2 seul choses qui change. Pour éviter les fautes dans le noms des tables
-lors de l'appel a la fonction générique j'ai fait un dictionnaire pour être sur.
-Cette fonction gére aussi le cas ou l'id est None.
+### Refactorisation réalisée
+1. **Création d'une classe `Database`** :
+   - Cette classe centralise la gestion des connexions à la base de données. 
+   - Une seule instance de `Database` est créée au début du programme, ce qui garantit une gestion efficace et sécurisée des ouvertures et fermetures de connexions.
+   - Les actions principales comme l'ouverture, la fermeture et l'exécution des requêtes sont encapsulées dans cette classe.
 
-Pour le reste des requête pour evité d'ecrire du sql directement dans notre code j'ai passé les requête non-répétitive dans un json.
-Il suffit juste de load un objet queries avec nos différentes requêtes a l'intérieur.
+2. **Fonction générique pour les requêtes "get by id"** :
+   - Une fonction générique a été créée pour gérer ces requêtes, car elles constituaient les répétitions les plus fréquentes dans le fichier.
+   - La fonction prend en entrée deux paramètres : le nom de la table et l'identifiant (ID).
+   - Pour éviter les erreurs sur les noms de table, un dictionnaire est utilisé pour valider ces noms.
+   - La fonction gère également le cas où l'ID est `None`.
+
+3. **Externalisation des requêtes SQL non répétitives** :
+   - Les requêtes SQL uniques ont été déplacées dans un fichier JSON.
+   - Un objet `queries` est chargé pour contenir ces requêtes, ce qui permet de séparer clairement la logique de l'application et le contenu SQL.
+
+### Résultats obtenus
+- **Code simplifié et plus maintenable** : La suppression des répétitions améliore la lisibilité et réduit les risques d'erreurs.
+- **Gestion des connexions sécurisée** : La classe `Database` garantit une utilisation optimale des ressources.
+- **Séparation des préoccupations** : L'externalisation des requêtes SQL dans un fichier JSON améliore la modularité et facilite les mises à jour.
+
+Ce refactoring apporte une base plus propre et robuste pour les futurs développements sur ce projet.
