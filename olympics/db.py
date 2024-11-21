@@ -1,20 +1,79 @@
 """Database connection and low-level SQL requests."""
 
 import sqlite3
+import json
 from pathlib import Path
+import logging
+
+# Configurez les logs
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
-db = Path(__file__).parents[1] / 'database' / 'olympics.db'
+class Database:
+    def __init__(self, db_path):
+        self.db_path = db_path
+        self.connection = None
+
+    def _connect(self):
+        """Establish and return a database connection."""
+        connection = sqlite3.connect(self.db_path, detect_types=sqlite3.PARSE_DECLTYPES, check_same_thread=False)
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA foreign_keys = ON")
+        return connection
+
+    def _close(self):
+        """Close the database connection."""
+        if self.connection:
+            self.connection.close()
+
+    def _execute_query(self, query, params=None):
+        """Execute a SQL query and return the results."""
+        try:
+            self.connection = self._connect()
+            cursor = self.connection.cursor()
+            logging.debug(f"Executing query: {query} | Params: {params}")
+            if params:
+                result = cursor.execute(query, params).fetchall()
+            else:
+                result = cursor.execute(query).fetchall()
+            logging.debug(f"Query returned {len(result)} rows.")
+            self._close()
+            return result
+        except sqlite3.Error as e:
+            logging.error(f"SQL Error: {e}")
+            self._close()
+            return None
 
 
-def get_connection():
-    """Get connection to database."""
-    connection = sqlite3.connect(db, detect_types=sqlite3.PARSE_DECLTYPES)
-    connection.row_factory = sqlite3.Row
-    cursor = connection.cursor()
-    cursor.execute('PRAGMA foreign_keys')
-    cursor.close()
-    return connection
+db = Path(__file__).parents[1] / "database" / "olympics.db"
+database = Database(db)
+
+TABLES = {
+    "country": "country",
+    "athlete": "athlete",
+    "discipline": "discipline",
+    "team": "team",
+    "event": "event",
+    "medal": "medal",
+    "discipline_athlete": "discipline_athlete",
+}
+
+def load_queries(file_path):
+    """Load SQL queries from a JSON file."""
+    with open(file_path, 'r', encoding='utf-8') as f:
+        return json.load(f)
+
+QUERY_FILE = Path(__file__).parents[0] / "json" / "queries.json"
+QUERIES = load_queries(QUERY_FILE)
+
+
+def get_all_by_id(table, id):
+    query = f"SELECT * FROM {table}"
+    if id is not None:
+        query += " WHERE id = ?"
+        return database._execute_query(query, (id,))
+    else:
+        return database._execute_query(query)
 
 
 def get_countries(id=None):
@@ -23,20 +82,7 @@ def get_countries(id=None):
     If id is not None, the list contains only the country with given id.
 
     """
-    cursor = get_connection().cursor()
-    if id is None:
-        rows = cursor.execute('''
-            SELECT *
-            FROM country
-        ''').fetchall()
-    else:
-        rows = cursor.execute('''
-            SELECT *
-            FROM country
-            WHERE id = ?
-        ''', (id,)).fetchall()
-    cursor.close()
-    return rows
+    return get_all_by_id(TABLES["country"], id)
 
 
 def get_athletes(id=None):
@@ -45,20 +91,7 @@ def get_athletes(id=None):
     If id is not None, the list contains only the athlete with given id.
 
     """
-    cursor = get_connection().cursor()
-    if id is None:
-        rows = cursor.execute('''
-            SELECT *
-            FROM athlete
-        ''').fetchall()
-    else:
-        rows = cursor.execute('''
-            SELECT *
-            FROM athlete
-            WHERE id = ?
-        ''', (id,)).fetchall()
-    cursor.close()
-    return rows
+    return get_all_by_id(TABLES["athlete"], id)
 
 
 def get_disciplines(id=None):
@@ -67,20 +100,7 @@ def get_disciplines(id=None):
     If id is not None, the list contains only the discipline with given id.
 
     """
-    cursor = get_connection().cursor()
-    if id is None:
-        rows = cursor.execute('''
-            SELECT *
-            FROM discipline
-        ''').fetchall()
-    else:
-        rows = cursor.execute('''
-            SELECT *
-            FROM discipline
-            WHERE id = ?
-        ''', (id,)).fetchall()
-    cursor.close()
-    return rows
+    return get_all_by_id(TABLES["discipline"], id)
 
 
 def get_teams(id=None):
@@ -89,20 +109,7 @@ def get_teams(id=None):
     If id is not None, the list contains only the team with given id.
 
     """
-    cursor = get_connection().cursor()
-    if id is None:
-        rows = cursor.execute('''
-            SELECT *
-            FROM team
-        ''').fetchall()
-    else:
-        rows = cursor.execute('''
-            SELECT *
-            FROM team
-            WHERE id = ?
-        ''', (id,)).fetchall()
-    cursor.close()
-    return rows
+    return get_all_by_id(TABLES["team"], id)
 
 
 def get_events(id=None):
@@ -111,20 +118,7 @@ def get_events(id=None):
     If id is not None, the list contains only the event with given id.
 
     """
-    cursor = get_connection().cursor()
-    if id is None:
-        rows = cursor.execute('''
-            SELECT *
-            FROM event
-        ''').fetchall()
-    else:
-        rows = cursor.execute('''
-            SELECT *
-            FROM event
-            WHERE id = ?
-        ''', (id,)).fetchall()
-    cursor.close()
-    return rows
+    return get_all_by_id(TABLES["event"], id)
 
 
 def get_medals(id=None):
@@ -133,153 +127,12 @@ def get_medals(id=None):
     If id is not None, the list contains only the medal with given id.
 
     """
-    cursor = get_connection().cursor()
-    if id is None:
-        rows = cursor.execute('''
-            SELECT *
-            FROM medal
-        ''').fetchall()
-    else:
-        rows = cursor.execute('''
-            SELECT *
-            FROM medal
-            WHERE id = ?
-        ''', (id,)).fetchall()
-    cursor.close()
-    return rows
+    return get_all_by_id(TABLES["medal"], id)
 
 
 def get_discipline_athletes(discipline_id):
     """Get athlete ids linked to given discipline id."""
-    cursor = get_connection().cursor()
-    rows = cursor.execute('''
-        SELECT *
-        FROM discipline_athlete
-        WHERE discipline_id = ?
-    ''', (discipline_id,)).fetchall()
-    cursor.close()
-    return rows
-
-
-def get_top_countries(top=10):
-    """Get medal count ranking of countries.
-
-    Countries are ranked by gold medals, then silver medals, then bronze
-    medals.
-
-    Number of countries is limited to the given top number.
-
-    """
-    cursor = get_connection().cursor()
-    rows = cursor.execute('''
-        SELECT
-            country.name,
-            sum(CASE type WHEN 'gold' THEN 1 ELSE 0 END) AS gold,
-            sum(CASE type WHEN 'silver' THEN 1 ELSE 0 END) AS silver,
-            sum(CASE type WHEN 'bronze' THEN 1 ELSE 0 END) AS bronze
-        FROM medal
-        LEFT JOIN athlete
-        ON medal.athlete_id = athlete.id
-        LEFT JOIN team
-        ON medal.team_id = team.id
-        RIGHT JOIN country
-        ON (country.id IN (team.country_id, athlete.country_id))
-        GROUP BY country.id
-        ORDER BY gold DESC, silver DESC, bronze DESC
-        LIMIT ?
-    ''', (top,)).fetchall()
-    cursor.close()
-    return rows
-
-
-def get_collective_medals(team_id=None):
-    """Get list of medals for team events.
-
-    If team_id is not None, the list contains only the medals won by team with
-    given id.
-
-    """
-    cursor = get_connection().cursor()
-    sql = '''
-        SELECT
-            country.name,
-            discipline.name AS discipline,
-            event.name AS event,
-            medal.type,
-            medal.date
-        FROM medal
-        JOIN team
-        ON medal.team_id = team.id
-        JOIN country
-        ON team.country_id = country.id
-        JOIN event
-        ON medal.event_id = event.id
-        JOIN discipline
-        ON event.discipline_id = discipline.id
-    '''
-    rows = cursor.execute(sql).fetchall()
-    cursor.close()
-    return rows
-
-
-def get_top_collective(top=10):
-    """Get medal count ranking of countries for team events.
-
-    Number of countries is limited to the given top number.
-
-    """
-    cursor = get_connection().cursor()
-    rows = cursor.execute('''
-        SELECT
-            country.name AS country,
-            sum(1) AS medals
-        FROM medal
-        JOIN team
-        ON medal.team_id = team.id
-        JOIN country
-        ON team.country_id = country.id
-        GROUP BY country
-        ORDER BY medals DESC
-        LIMIT ?
-    ''', (top,)).fetchall()
-    cursor.close()
-    return rows
-
-
-def get_individual_medals(athlete_id=None):
-    """Get list of medals for individual events.
-
-    If athlete_id is not None, the list contains only the medals won by athlete
-    with given id.
-
-    """
-    cursor = get_connection().cursor()
-    sql = '''
-        SELECT
-            athlete.name,
-            country.name AS country,
-            discipline.name AS discipline,
-            event.name AS event,
-            medal.type,
-            medal.date
-        FROM medal
-        JOIN athlete
-        ON medal.athlete_id = athlete.id
-        JOIN country
-        ON athlete.country_id = country.id
-        JOIN event
-        ON medal.event_id = event.id
-        JOIN discipline
-        ON event.discipline_id = discipline.id
-    '''
-    if athlete_id is None:
-        rows = cursor.execute(sql).fetchall()
-    else:
-        sql += 'WHERE athlete.id = ?'
-        rows = cursor.execute(sql, (athlete_id,)).fetchall()
-    cursor.close()
-    return rows
-
+    return get_all_by_id(TABLES["discipline_athlete"], discipline_id)
 
 def get_top_individual(top=10):
     """Get medal count ranking of athletes for individual events.
@@ -287,21 +140,35 @@ def get_top_individual(top=10):
     Number of athletes is limited to the given top number.
 
     """
-    cursor = get_connection().cursor()
-    rows = cursor.execute('''
-        SELECT
-            athlete.name,
-            athlete.gender,
-            country.name AS country,
-            sum(1) AS medals
-        FROM medal
-        JOIN athlete
-        ON medal.athlete_id = athlete.id
-        JOIN country
-        ON athlete.country_id = country.id
-        GROUP BY athlete.name, country
-        ORDER BY medals DESC
-        LIMIT ?
-    ''', (top,)).fetchall()
-    cursor.close()
-    return rows
+    query = QUERIES["get_top_individual"]
+    return database._execute_query(query, (top,))
+
+def get_top_countries(top=10):
+    """Get medal count ranking of countries."""
+    query = QUERIES["top_countries"]
+    return database._execute_query(query, (top,))
+
+
+def get_collective_medals(team_id=None):
+    """Get list of medals for team events."""
+    query = QUERIES["collective_medals"]
+    params = (team_id,)
+    if team_id:
+        query += "  WHERE team.id = ?"
+    else: 
+        params = None
+    return database._execute_query(query, params)
+
+
+def get_top_collective(top=10):
+    """Get medal count ranking of countries for team events."""
+    query = QUERIES["top_collective"]
+    return database._execute_query(query, (top,))
+
+
+def get_individual_medals(athlete_id=None):
+    """Get list of medals for individual events."""
+    query = QUERIES["individual_medals"]
+    if athlete_id is not None: 
+        query += " WHERE athlete.id = ?"
+    return database._execute_query(query, (athlete_id,))

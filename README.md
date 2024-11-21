@@ -301,3 +301,27 @@ Si vous avez des réponses à écrire, des remarques à faire sur votre travail,
 ajoutez-les à la fin de ce fichier. **N’hésitez pas à expliquer vos réussites,
 vos doutes, vos erreurs, afin que je puisse mieux comprendre votre projet et en
 tenir compte lors de mon évaluation.***
+
+## Charles denner
+
+**Refactorisation du code de db.py**
+dès que j'ai vu le code de ce fichier j'était sur de le refaire dès que je pouvais. Effectivement le code était tellement horrible 
+que je me devais de le changer.
+
+J'ai tout de suite remarquer les répétitions de code abusive sur les requêtes get by id.
+J'ai aussi vu que la gestion des ouvertures et fermetures de la db était mal gérer.
+En entreprise j'ai repris 2 énormes projet plutôt ancien avec des serveur très mal codé,
+j'ai donc l'habitude de remarquer du code mal fait et de le corrigé (surtout la partie serveur donc comme ici).
+
+J'ai donc tout de suite pensé a faire une class Database pour facilité la gestion d'ouverture et de fermeture de la connection
+en créant des classes pour la connection la fermeture et l'éxécution d'une requête.
+
+j'ai donc qu'une instancation de ma classe au debut de mon programme qui gérera les connection a la bd.
+
+Ensuite j'ai pensé a faire une fonction générique pour le get by id car c'est le code qui ce repéte le plus dans ce fichier.
+Elle prend en entré une table et un id car ce sont les 2 seul choses qui change. Pour éviter les fautes dans le noms des tables
+lors de l'appel a la fonction générique j'ai fait un dictionnaire pour être sur.
+Cette fonction gére aussi le cas ou l'id est None.
+
+Pour le reste des requête pour evité d'ecrire du sql directement dans notre code j'ai passé les requête non-répétitive dans un json.
+Il suffit juste de load un objet queries avec nos différentes requêtes a l'intérieur.
