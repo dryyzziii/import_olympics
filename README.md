@@ -312,7 +312,7 @@ Dès ma première lecture du fichier `db.py`, j'ai su qu'il nécessitait une ref
 1. **Répétitions de code abusives** : Les requêtes "get by id" étaient copiées et collées à de multiples endroits.
 2. **Mauvaise gestion des connexions à la base de données** : Les ouvertures et fermetures de la base de données n'étaient pas correctement gérées. En effet, elles étaient répétitives : à chaque appel de fonction, l'ouverture et la fermeture étaient effectuées de manière redondante.
 
-En entreprise, j'ai déjà repris deux gros projets anciens avec des serveurs très mal codés. Ces expériences m'ont permis de développer une expertise dans la correction de code, notamment côté serveur. J'ai donc appliqué ces compétences ici.
+En entreprise, j'ai déjà repris deux gros projets anciens avec des serveurs très mal codés. Ces expériences m'ont permis de développer ma maitrise dans la correction de code, notamment côté serveur. J'ai donc appliqué ces compétences ici.
 
 ### Refactorisation réalisée
 1. **Création d'une classe `Database`** :
