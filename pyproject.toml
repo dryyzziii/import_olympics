@@ -12,7 +12,9 @@ dependencies = [
   'rich',
   'fastapi[standard]',
   'pytest-cov',
-  'ruff'
+  'ruff',
+  'matplotlib',
+  'tkinter'
 ]
 
 [tool.pytest.ini_options]
