@@ -2,6 +2,7 @@
 
 import argparse
 from . import cli
+from . import plot
 
 parser = argparse.ArgumentParser(
     prog='olympics',
@@ -32,11 +33,11 @@ def main(argv=None):
     if args.chart:  # Affichage graphique
         match args.command:
             case 'countries':
-                cli.plot_top_countries(top)
+                plot.plot_top_countries(top)
             case 'collective':
-                cli.plot_top_collective(top)
+                plot.plot_top_collective(top)
             case 'individual':
-                cli.plot_top_individual(top)
+                plot.plot_top_individual(top)
     else:  # Affichage console
         match args.command:
             case 'countries':
